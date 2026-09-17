@@ -3,7 +3,7 @@ import os
 import time
 import json
 import urllib.request
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 # ========== Fixture 区（原有，不能删） ==========
 
@@ -89,6 +89,9 @@ def pytest_sessionfinish(session, exitstatus):
 
     duration = str(timedelta(seconds=int(time.time() - _session_start_time))) if _session_start_time else 'N/A'
 
+    # 开始时间格式化
+    start_time_str = datetime.fromtimestamp(_session_start_time).strftime('%Y-%m-%d %H:%M') if _session_start_time else 'N/A'
+
     is_success = exitstatus == 0
     icon = '✅' if is_success else '❌'
     title = '接口自动化测试通过' if is_success else '接口自动化测试失败'
@@ -98,7 +101,7 @@ def pytest_sessionfinish(session, exitstatus):
 
     msg = f"{icon} **{title}**\n" \
           f"> **项目**：{job_name}\n" \
-          f"> **构建**：#{build_number}\n" \
+          f"> **构建**：#{build_number} {start_time_str}\n" \
           f"> **耗时**：{duration}\n" \
           f"> **结果**：通过 {passed} | 失败 {failed} | 跳过 {skipped}\n"
 
