@@ -37,10 +37,15 @@ pipeline {
 
     post {
         success {
-            bat 'python notify.py "%WECHAT_WEBHOOK%" success'
+            script {
+                // 将精确耗时和链接注入环境变量后调用 Python
+                bat 'set BUILD_DURATION_STR=' + currentBuild.durationString + ' && python notify.py "%WECHAT_WEBHOOK%" success'
+            }
         }
         failure {
-            bat 'python notify.py "%WECHAT_WEBHOOK%" failure'
+            script {
+                bat 'set BUILD_DURATION_STR=' + currentBuild.durationString + ' && python notify.py "%WECHAT_WEBHOOK%" failure'
+            }
         }
     }
 }

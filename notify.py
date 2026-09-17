@@ -6,14 +6,25 @@ import os
 
 
 def build_message(status):
+    # 基础信息从 Jenkins 自动注入的环境变量读取
     job_name = os.environ.get('JOB_NAME', 'N/A')
     build_number = os.environ.get('BUILD_NUMBER', 'N/A')
-    branch = os.environ.get('BRANCH_NAME', 'master')
-    if branch is None or branch == 'null':
-        branch = 'master'
-    build_url = os.environ.get('BUILD_URL', '')
-    duration = os.environ.get('BUILD_DURATION', 'N/A')
+    branch = os.environ.get('BRANCH_NAME') or 'master'
 
+    # 进阶：读取 Jenkinsfile 传入的精确耗时
+    duration = os.environ.get('BUILD_DURATION_STR') or '见详情页'
+
+    # 基础链接
+    build_url = os.environ.get('BUILD_URL') or ''
+
+    if build_url:
+        report_url = build_url + 'allure/'
+        detail_url = build_url + 'console'
+    else:
+        report_url = 'N/A'
+        detail_url = 'N/A'
+
+    # 状态标识
     if status == 'success':
         icon = '\u2705'
         title = '接口自动化测试通过'
@@ -21,9 +32,7 @@ def build_message(status):
         icon = '\u274c'
         title = '接口自动化测试失败'
 
-    report_url = build_url + 'allure/' if build_url else 'N/A'
-    detail_url = build_url + 'console' if build_url else 'N/A'
-
+    # 组装 Markdown 消息
     msg = f"{icon} **{title}**\n" \
           f"> 项目：{job_name}\n" \
           f"> 构建：#{build_number}\n" \
