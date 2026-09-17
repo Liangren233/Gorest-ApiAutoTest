@@ -66,12 +66,14 @@ allure serve report/tmp
 通过 pytest_generate_tests 自动加载 YAML，实现参数化驱动。
 ### 2. 跨用例变量关联
 使用 session 级 fixture 维护 vars_pool 变量池，支持 ${变量名} 语法跨用例传递数据：
-#### 第一条用例提取
+```bash 
+#第一条用例提取
 extract:
   user_id: $.id
 
-#### 第二条用例引用
+#第二条用例引用
 url: /users/${user_id}
+```
 ### 3. 多环境配置
 config/env.yaml 定义多套环境，--env 参数切换：
 pytest --env=test
@@ -91,8 +93,10 @@ CI/CD 环境通过 Jenkins Credentials 注入同名环境变量。
 执行断言
 响应体全文附件
 ## 运行结果
+```bash
 tests/test_users.py::test_api[查询用户列表并提取首个ID] PASSED
 tests/test_users.py::test_api[查询提取到的ID对应的用户] PASSED
+```
 ## 扩展方向
 - [ ] 失败自动重试（pytest-rerunfailures）
 - [ ] 日志模块（logging + 按日期切分）
