@@ -83,9 +83,9 @@ GOREST_TOKEN=your_token_here
 7. Branch 填 `master`
 8. Script Path 填 `Jenkinsfile`
 9. 保存
-```
+
 ### 运行测试
-```bash
+```
 pytest
 ```
 
