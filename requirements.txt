@@ -1,0 +1,6 @@
+requests
+pyyaml
+pytest
+allure-pytest
+jsonpath
+jsonschema
