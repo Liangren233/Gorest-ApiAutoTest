@@ -1,9 +1,33 @@
+import pytest
 import os
 import time
 import json
-import pytest
 import urllib.request
 from datetime import timedelta
+
+# ========== Fixture 区（原有，不能删） ==========
+
+@pytest.fixture
+def client():
+    from core.client import ApiClient
+    return ApiClient()
+
+@pytest.fixture(scope="session")
+def vars_pool():
+    return {}
+
+@pytest.fixture(scope="session")
+def run_env(request):
+    return request.config.getoption("--env", default="test")
+
+def pytest_generate_tests(metafunc):
+    if "case" in metafunc.fixturenames:
+        from core.yaml_util import load_yaml
+        cases = load_yaml("data/users.yaml")
+        ids = [c.get("name", "未命名") for c in cases]
+        metafunc.parametrize("case", cases, ids=ids)
+
+# ========== 通知模块（追加在末尾） ==========
 
 _test_stats = {"passed": 0, "failed": 0, "skipped": 0}
 _session_start_time = None
@@ -53,7 +77,6 @@ def pytest_sessionfinish(session, exitstatus):
     if not webhook:
         return
 
-    # 统计
     passed = _test_stats["passed"]
     failed = _test_stats["failed"]
     skipped = _test_stats["skipped"]
@@ -64,19 +87,15 @@ def pytest_sessionfinish(session, exitstatus):
         except Exception:
             pass
 
-    # 耗时
     duration = str(timedelta(seconds=int(time.time() - _session_start_time))) if _session_start_time else 'N/A'
 
-    # 状态
     is_success = exitstatus == 0
     icon = '✅' if is_success else '❌'
     title = '接口自动化测试通过' if is_success else '接口自动化测试失败'
 
-    # 项目信息
     job_name = os.environ.get('JOB_NAME', 'api-auto-test')
     build_number = os.environ.get('BUILD_NUMBER', 'local')
 
-    # 组装消息 —— 无链接，纯喊话
     msg = f"{icon} **{title}**\n" \
           f"> **项目**：{job_name}\n" \
           f"> **构建**：#{build_number}\n" \
