@@ -22,7 +22,7 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                bat 'pytest --env=test --alluredir=report/tmp -v'
+                bat 'pytest'
             }
         }
 
@@ -38,7 +38,6 @@ pipeline {
     post {
         always {
             script {
-                // 注入耗时供 conftest.py 读取
                 bat 'set BUILD_DURATION=' + currentBuild.durationString + ' && echo duration injected'
             }
         }
