@@ -38,14 +38,18 @@ pipeline {
     post {
         success {
             script {
-                // 将精确耗时和链接注入环境变量后调用 Python
-                bat 'set BUILD_DURATION_STR=' + currentBuild.durationString + ' && python notify.py "%WECHAT_WEBHOOK%" success'
+                def reportUrl = env.BUILD_URL != null ? env.BUILD_URL + 'allure/' : 'N/A'
+                def detailUrl = env.BUILD_URL != null ? env.BUILD_URL + 'console' : 'N/A'
+                def duration = currentBuild.durationString != null ? currentBuild.durationString : '见详情页'
+                bat "python notify.py \"%WECHAT_WEBHOOK%\" success \"" + duration + "\" \"" + reportUrl + "\" \"" + detailUrl + "\""
             }
         }
         failure {
             script {
-                bat 'set BUILD_DURATION_STR=' + currentBuild.durationString + ' && python notify.py "%WECHAT_WEBHOOK%" failure'
+                def reportUrl = env.BUILD_URL != null ? env.BUILD_URL + 'allure/' : 'N/A'
+                def detailUrl = env.BUILD_URL != null ? env.BUILD_URL + 'console' : 'N/A'
+                def duration = currentBuild.durationString != null ? currentBuild.durationString : '见详情页'
+                bat "python notify.py \"%WECHAT_WEBHOOK%\" failure \"" + duration + "\" \"" + reportUrl + "\" \"" + detailUrl + "\""
             }
         }
     }
-}
