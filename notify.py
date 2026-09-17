@@ -4,6 +4,7 @@ import json
 import urllib.request
 import os
 
+
 def build_message(status, duration, report_url, detail_url):
     job_name = os.environ.get('JOB_NAME', 'N/A')
     build_number = os.environ.get('BUILD_NUMBER', 'N/A')
@@ -26,6 +27,7 @@ def build_message(status, duration, report_url, detail_url):
 
     return msg
 
+
 def send_wechat(webhook_url, content):
     payload = json.dumps(
         {"msgtype": "markdown", "markdown": {"content": content}},
@@ -43,14 +45,20 @@ def send_wechat(webhook_url, content):
         print("Wechat notify failed:", e)
         sys.exit(1)
 
+
 if __name__ == "__main__":
-    if len(sys.argv) < 5:
-        print("Usage: python notify.py <webhook_url> <status> <duration> <report_url> <detail_url>")
+    if len(sys.argv) < 6:
+        print("Usage: python notify.py <webhook> <status> <duration> <report_url> <detail_url>")
         sys.exit(1)
+
     webhook = sys.argv[1]
     status = sys.argv[2]
     duration = sys.argv[3]
     report_url = sys.argv[4]
     detail_url = sys.argv[5]
+
+    # 调试打印，确认参数是否传进来了
+    print(f"[DEBUG] duration={duration}, report={report_url}, detail={detail_url}")
+
     msg = build_message(status, duration, report_url, detail_url)
     send_wechat(webhook, msg)

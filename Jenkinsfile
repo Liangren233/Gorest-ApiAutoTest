@@ -38,18 +38,21 @@ pipeline {
     post {
         success {
             script {
-                def reportUrl = env.BUILD_URL != null ? env.BUILD_URL + 'allure/' : 'N/A'
-                def detailUrl = env.BUILD_URL != null ? env.BUILD_URL + 'console' : 'N/A'
-                def duration = currentBuild.durationString != null ? currentBuild.durationString : '见详情页'
-                bat "python notify.py \"%WECHAT_WEBHOOK%\" success \"" + duration + "\" \"" + reportUrl + "\" \"" + detailUrl + "\""
+                def dur = currentBuild.durationString ?: '见详情页'
+                def baseUrl = env.BUILD_URL ?: ''
+                def repUrl = baseUrl ? (baseUrl + 'allure/') : 'N/A'
+                def detUrl = baseUrl ? (baseUrl + 'console') : 'N/A'
+                // Windows bat 传参：给带空格的耗时加引号，URL加引号防截断
+                bat "python notify.py \"%WECHAT_WEBHOOK%\" success \"${dur}\" \"${repUrl}\" \"${detUrl}\""
             }
         }
         failure {
             script {
-                def reportUrl = env.BUILD_URL != null ? env.BUILD_URL + 'allure/' : 'N/A'
-                def detailUrl = env.BUILD_URL != null ? env.BUILD_URL + 'console' : 'N/A'
-                def duration = currentBuild.durationString != null ? currentBuild.durationString : '见详情页'
-                bat "python notify.py \"%WECHAT_WEBHOOK%\" failure \"" + duration + "\" \"" + reportUrl + "\" \"" + detailUrl + "\""
+                def dur = currentBuild.durationString ?: '见详情页'
+                def baseUrl = env.BUILD_URL ?: ''
+                def repUrl = baseUrl ? (baseUrl + 'allure/') : 'N/A'
+                def detUrl = baseUrl ? (baseUrl + 'console') : 'N/A'
+                bat "python notify.py \"%WECHAT_WEBHOOK%\" failure \"${dur}\" \"${repUrl}\" \"${detUrl}\""
             }
         }
     }
