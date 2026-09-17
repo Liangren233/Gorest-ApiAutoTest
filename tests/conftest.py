@@ -85,6 +85,7 @@ def _build_links():
 
 
 @pytest.hookimpl(trylast=True)
+@pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
     """
     pytest 会话结束：组装并发送通知。
@@ -96,48 +97,81 @@ def pytest_sessionfinish(session, exitstatus):
     if not webhook:
         return
 
-    # 统计
+    # ===== 统计用例结果（兼容 pytest 9.x）=====
     passed = 0
     failed = 0
     skipped = 0
     try:
-        if hasattr(session, 'testscollected') and session.testscollected > 0:
-            passed = session.testscollected - (session.testsfailed or 0) - (session.skipped or 0)
-            failed = session.testsfailed or 0
-            skipped = session.skipped or 0
+        # pytest 9.x: 遍历所有 test item，读其 call report
+        for item in session.items:
+            if hasattr(item, 'rep_call'):
+                if item.rep_call.passed:
+                    passed += 1
+                elif item.rep_call.failed:
+                    failed += 1
+                elif item.rep_call.skipped:
+                    skipped += 1
+            elif hasattr(item, 'rep_setup') and item.rep_setup.failed:
+                failed += 1
+            elif hasattr(item, 'rep_setup') and item.rep_setup.skipped:
+                skipped += 1
     except Exception:
-        pass
+        # 终极兜底：用 session 属性（老版本 pytest）
+        try:
+            passed = getattr(session, 'testscollected', 0) or 0
+            failed = getattr(session, 'testsfailed', 0) or 0
+            skipped = getattr(session, 'skipped', 0) or 0
+            if passed > 0:
+                passed = passed - failed
+        except Exception:
+            pass
 
-    # 耗时
+    # ===== 耗时 =====
     duration = os.environ.get('BUILD_DURATION')
     if not duration and _session_start_time:
         duration = str(timedelta(seconds=int(time.time() - _session_start_time)))
     elif not duration:
         duration = 'N/A'
 
-    # 状态
+    # ===== 状态 =====
     status = 'success' if exitstatus == 0 else 'failure'
     icon = '\u2705' if status == 'success' else '\u274c'
     title = '接口自动化测试通过' if status == 'success' else '接口自动化测试失败'
 
-    # 环境信息
+    # ===== 环境信息 =====
     job_name = os.environ.get('JOB_NAME', 'api-auto-test')
     build_number = os.environ.get('BUILD_NUMBER', 'local')
-    branch = os.environ.get('BRANCH_NAME') or os.environ.get('GIT_BRANCH', 'local')
+    branch = os.environ.get('BRANCH_NAME') or os.environ.get('GIT_BRANCH', 'local').replace('origin/', '')
 
-    # 链接
-    report_url, detail_url = _build_links()
-    report_text = f"[点击查看 Allure]({report_url})" if report_url else "[本地运行，无报告链接]"
-    detail_text = f"[点击查看控制台]({detail_url})" if detail_url else "[本地运行，无日志链接]"
+    # ===== 链接（修复：localhost 也生成链接）=====
+    jenkins_url = os.environ.get('JENKINS_PUBLIC_URL') or os.environ.get('JENKINS_URL', '')
+    if jenkins_url:
+        jenkins_url = jenkins_url.rstrip('/')
+        # 如果配的是 localhost，尝试从 JENKINS_URL 提取端口拼成本机 IP
+        # 或者直接用 localhost（同机访问没问题）
+        if 'localhost' in jenkins_url or '127.0.0.1' in jenkins_url:
+            # 尝试从环境变量拿真实 IP（Windows 下）
+            import socket
+            try:
+                real_ip = socket.gethostbyname(socket.gethostname())
+                jenkins_url = jenkins_url.replace('localhost', real_ip).replace('127.0.0.1', real_ip)
+            except Exception:
+                pass  # 实在拿不到就留 localhost
 
-    # 组装消息
+    if jenkins_url and job_name and build_number and build_number != 'local':
+        base = f"{jenkins_url}/job/{job_name}/{build_number}/"
+        report_url = base + 'allure/'
+    else:
+        report_url = None
+
+    # ===== 组装消息（精简版）=====
+    report_text = report_url if report_url else "[本地运行，无报告链接]"
+
     msg = f"{icon} **{title}**\n" \
-          f"> 项目：{job_name} | 构建：#{build_number}\n" \
-          f"> 分支：{branch}\n" \
+          f"> 项目：{job_name} (#{build_number})\n" \
           f"> 结果：通过 {passed} | 失败 {failed} | 跳过 {skipped}\n" \
           f"> 耗时：{duration}\n" \
-          f"> 报告：{report_text}\n" \
-          f"> 详情：{detail_text}\n"
+          f"> 报告：{report_text}\n"
 
     if status == 'failure':
         msg += f"> <@all> 请关注构建失败！\n"
