@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         GOREST_TOKEN = credentials('gorest-token')
+        // 企微机器人 Webhook 通过凭证注入（在 Jenkins 中创建类型为 Secret Text 的凭证，ID 设为 wechat-webhook）
+        WECHAT_WEBHOOK = credentials('wechat-webhook')
     }
 
     stages {
@@ -37,32 +39,45 @@ pipeline {
     post {
         success {
             script {
+                def reportUrl = "${env.BUILD_URL}allure/"
                 def msg = """✅ **接口自动化测试通过**
 > 项目：${env.JOB_NAME}
 > 构建：#${env.BUILD_NUMBER}
 > 分支：${env.BRANCH_NAME}
+> 耗时：${currentBuild.durationString}
+> 报告：[点击查看 Allure](${reportUrl})
 > 详情：${env.BUILD_URL}"""
-                wechatNotify(msg)
+                sendWechat(msg)
             }
         }
         failure {
             script {
+                def reportUrl = "${env.BUILD_URL}allure/"
                 def msg = """❌ **接口自动化测试失败**
 > 项目：${env.JOB_NAME}
 > 构建：#${env.BUILD_NUMBER}
 > 分支：${env.BRANCH_NAME}
-> 详情：${env.BUILD_URL}allure/"""
-                wechatNotify(msg)
+> 耗时：${currentBuild.durationString}
+> 报告：[点击查看 Allure](${reportUrl})
+> 详情：${env.BUILD_URL}console"""
+                sendWechat(msg)
             }
         }
     }
 }
 
-def wechatNotify(String content) {
-    def webhook = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的企微机器人key'
-    def escaped = content.replace('"', '\\"').replace('\n', '\\n')
+/* ================= 通知方法封装 ================= */
+
+// 企微通知（PowerShell 防转义/防乱码 + 异常捕获）
+def sendWechat(String content) {
+    def escaped = content.replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\n')
     powershell """
 \$body = '{"msgtype": "markdown", "markdown": {"content": "${escaped}"}}'
-Invoke-RestMethod -Uri '${webhook}' -Method Post -ContentType 'application/json' -Body \$body
+try {
+  Invoke-RestMethod -Uri '${env.WECHAT_WEBHOOK}' -Method Post -ContentType 'application/json' -Body \$body
+  Write-Output "Wechat notify success"
+} catch {
+  Write-Output "Wechat notify failed: \$_"
+}
 """
 }
