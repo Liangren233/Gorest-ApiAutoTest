@@ -84,12 +84,18 @@ GOREST_TOKEN=your_token_here
 8. Script Path 填 `Jenkinsfile`
 9. 保存
 
-### 运行测试
+#### 5. 验证
+点击 Build Now，确认：\
+✅ 1.构建状态为 SUCCESS\
+✅ 2.构建页面出现 Allure Report​ 图标，点开可见用例报告\
+✅ 3.企微群收到构建通知（配了 WECHAT_WEBHOOK 的前提下）
+
+### 本地运行测试
 ```
 pytest
 ```
 
-### 查看 Allure 报告（需安装 Allure CLI）
+### 本地查看 Allure 报告（需安装 Allure CLI）
 ```bash
 allure serve report/tmp
 ```
