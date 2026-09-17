@@ -1,5 +1,3 @@
-
-```markdown
 # API 自动化测试框架
 
 基于 pytest + YAML 数据驱动接口自动化测试框架，支持跨用例变量关联、Bearer Token 鉴权、Allure 分层报告及 Jenkins + 企微通知。
@@ -22,7 +20,12 @@
 
 ### 克隆项目
 ```bash
+#gitee仓库(由于网络代理原因，建议暂时使用gitee仓库地址，对国内更友好)
 git clone https://gitee.com/liangren2334/api-auto-test.git
+cd api-auto-test
+
+#github仓库（后续会尝试让Jenkins正常连接github仓库......)
+git clone https://gitub.com/liangren233/api-auto-test.git
 cd api-auto-test
 ```
 
@@ -31,14 +34,56 @@ cd api-auto-test
 pip install -r requirements.txt
 ```
 
-### 配置密钥
-Token 通过环境变量注入，本地开发可创建 `.env`：
+### 配置
+### Token 
+通过环境变量注入，本地开发可创建 `.env`：
 ```bash
 # .env（不提交 Git）
 GOREST_TOKEN=your_token_here
 ```
-Jenkins 环境通过 Credentials 自动注入，无需手动配置。
 
+### Jenkins 快速配置（必做）
+
+> 以下为其他人使用本项目时必须手动完成的配置，缺一不可。
+
+#### 1. 安装插件（Manage Jenkins → Plugins → Available）
+
+| 插件名 | 用途 |
+|--------|------|
+| Git Plugin | 源码拉取基础依赖 |
+| Pipeline | 流水线引擎（读取 `Jenkinsfile`） |
+| Credentials Binding | 将凭据注入为环境变量 |
+| Allure Jenkins Plugin | 生成并归档 Allure 报告 |
+| Gitee Plugin | 按需：仓库在 Gitee 且需 Webhook 自动触发时安装 |
+
+#### 2. 配置凭据（Manage Jenkins → Credentials → System → Global）
+
+| 凭据 ID | 类型 | 说明 |
+|---------|------|------|
+| `gorest-token` | Secret Text | GoRest API 的 Bearer Token |
+| `wechat-webhook` | Secret Text | 企微群机器人 Webhook 地址（不配则通知静默跳过） |
+
+> ⚠️ 凭据 ID **必须与此完全一致**，代码中通过 `withCredentials` 绑定同名变量。
+
+#### 3. 配置 Allure 命令行（Manage Jenkins → Tools）
+
+- 找到 **Allure Commandline** 部分
+- 点击 Add Allure Commandline
+- 起个名字（如 `allure`），勾选 **Install automatically**（或指定本地路径）
+- 保存
+
+#### 4. 创建 Pipeline Job
+
+1. New Item → 输入名称 → 选 **Pipeline** → OK
+2. 下滑到 **Pipeline** 配置区
+3. Definition 选 **Pipeline script from SCM**
+4. SCM 选 **Git**（Gitee 仓库选 **Gitee**，需先装 Gitee Plugin）
+5. Repository URL 填你的仓库地址（如 `https://gitee.com/liangren2334/api-auto-test`）
+6. Credentials 选有权限拉代码的账号（Gitee 用私人 Token）
+7. Branch 填 `master`
+8. Script Path 填 `Jenkinsfile`
+9. 保存
+```
 ### 运行测试
 ```bash
 pytest
