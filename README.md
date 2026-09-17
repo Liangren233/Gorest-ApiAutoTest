@@ -25,7 +25,9 @@ cp .env.example .env
 pytest
 
 ### 查看 Allure 报告（需安装 Allure CLI）
-allure serve report/tmp```
+allure serve report/tmp
+```
+
 ## 目录结构
 ```text api-auto-test/
 ├── .env.example              # 环境变量模板
@@ -43,7 +45,9 @@ allure serve report/tmp```
 │   └── test_users.py         # 测试主体（Allure 步骤装饰）
 ├── pytest.ini                # pytest 配置
 ├── requirements.txt          # 依赖清单
-└── README.md ```
+└── README.md
+```
+
 ## 核心设计
 ### 1. 数据驱动
 用例数据完全写在 YAML 中，与测试代码解耦：
