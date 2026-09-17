@@ -45,8 +45,6 @@ def _extract(resp, case, vars_pool):
         else:
             print(f"  [WARN] 提取失败: {var_name} (表达式: {expr})")
 
-@allure.feature("用户管理")
-@allure.story("用户查询")
 def test_api(client, case, vars_pool):
     req = case["request"]
     allure.dynamic.title(case["name"])
