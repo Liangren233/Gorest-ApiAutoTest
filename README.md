@@ -22,11 +22,11 @@
 ```bash
 #gitee仓库(由于网络代理原因，建议暂时使用gitee仓库地址，对国内更友好)
 git clone https://gitee.com/liangren2334/api-auto-test.git
-cd api-auto-test
+cd Gorest-ApiAutoTest-test
 
 #github仓库（后续会尝试让Jenkins正常连接github仓库......)
 git clone https://gitub.com/liangren233/api-auto-test.git
-cd api-auto-test
+cd Gorest-ApiAutoTest-test
 ```
 
 ### 安装依赖

@@ -96,7 +96,7 @@ def pytest_sessionfinish(session, exitstatus):
     icon = '✅' if is_success else '❌'
     title = '接口自动化测试通过' if is_success else '接口自动化测试失败'
 
-    job_name = os.environ.get('JOB_NAME', 'api-auto-test')
+    job_name = os.environ.get('JOB_NAME', 'Gorest-ApiAutoTest-test')
     build_number = os.environ.get('BUILD_NUMBER', 'local')
 
     msg = f"{icon} **{title}**\n" \
