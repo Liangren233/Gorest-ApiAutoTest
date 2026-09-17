@@ -60,6 +60,9 @@ pipeline {
 
 def wechatNotify(String content) {
     def webhook = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的企微机器人key'
-    def payload = /{"msgtype": "markdown", "markdown": {"content": "${content}"}}/
-    bat "curl -H \"Content-Type: application/json\" -d \"${payload}\" \"${webhook}\""
+    def escaped = content.replace('"', '\\"').replace('\n', '\\n')
+    powershell """
+\$body = '{"msgtype": "markdown", "markdown": {"content": "${escaped}"}}'
+Invoke-RestMethod -Uri '${webhook}' -Method Post -ContentType 'application/json' -Body \$body
+"""
 }
