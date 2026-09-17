@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         GOREST_TOKEN = credentials('gorest-token')
-        // 企微机器人 Webhook 通过凭证注入（在 Jenkins 中创建类型为 Secret Text 的凭证，ID 设为 wechat-webhook）
         WECHAT_WEBHOOK = credentials('wechat-webhook')
     }
 
@@ -66,22 +65,17 @@ pipeline {
     }
 }
 
-/* ================= 通知方法封装 ================= */
-
-// 企微通知（PowerShell 防转义/防乱码 + 异常捕获）
 def sendWechat(String content) {
-    // 1. 将内容转义（防 Markdown/JSON 破坏）
     def escaped = content.replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\n')
-
-    // 2. 将 Webhook 和消息体作为独立变量传入 PowerShell，避免脚本字符串内插值
-    powershell -ArgumentList @(env.WECHAT_WEBHOOK, escaped) -Command {
-        param($webhookUrl, $bodyContent)
-        $body = '{"msgtype": "markdown", "markdown": {"content": "' + $bodyContent + '"}}'
-        try {
-            Invoke-RestMethod -Uri $webhookUrl -Method Post -ContentType 'application/json' -Body $body
-            Write-Output "Wechat notify success"
-        } catch {
-            Write-Output "Wechat notify failed: $_"
-        }
+    withEnv(["WEBHOOK=${env.WECHAT_WEBHOOK}", "MSG=${escaped}"]) {
+        powershell '''
+$body = "{`"msgtype`": `"markdown`", `"markdown`": {`"content`": `"$env:MSG`"}}"
+try {
+    Invoke-RestMethod -Uri $env:WEBHOOK -Method Post -ContentType "application/json" -Body $body
+    Write-Output "Wechat notify success"
+} catch {
+    Write-Output "Wechat notify failed: $_"
+}
+'''
     }
 }
