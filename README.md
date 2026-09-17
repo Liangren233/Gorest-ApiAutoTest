@@ -51,7 +51,7 @@ allure serve report/tmp
 ## 核心设计
 ### 1. 数据驱动
 用例数据完全写在 YAML 中，与测试代码解耦：
-- name: 查询用户列表并提取首个ID
+```text- name: 查询用户列表并提取首个ID
   request:
     method: GET
     url: /users?page=1&per_page=1
@@ -62,6 +62,7 @@ allure serve report/tmp
       name: { type: str }
   extract:
     user_id: $.id
+```
 通过 pytest_generate_tests 自动加载 YAML，实现参数化驱动。
 ### 2. 跨用例变量关联
 使用 session 级 fixture 维护 vars_pool 变量池，支持 ${变量名} 语法跨用例传递数据：
