@@ -66,12 +66,15 @@ pipeline {
 }
 
 def sendWechat(String content) {
+    // 仅对普通消息内容做转义，绝不对凭证做字符串拼接
     def escaped = content.replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\n')
-    withEnv(["WEBHOOK=${env.WECHAT_WEBHOOK}", "MSG=${escaped}"]) {
+
+    // 仅透传消息内容，WEBHOOK 直接使用环境自带的 WECHAT_WEBHOOK
+    withEnv(["MSG=${escaped}"]) {
         powershell '''
-$body = "{`"msgtype`": `"markdown`", `"markdown`": {`"content`": `"$env:MSG`"}}"
+$body = '{"msgtype":"markdown","markdown":{"content":"' + $env:MSG + '"}}'
 try {
-    Invoke-RestMethod -Uri $env:WEBHOOK -Method Post -ContentType "application/json" -Body $body
+    Invoke-RestMethod -Uri $env:WECHAT_WEBHOOK -Method Post -ContentType "application/json" -Body $body
     Write-Output "Wechat notify success"
 } catch {
     Write-Output "Wechat notify failed: $_"
