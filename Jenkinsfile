@@ -36,34 +36,23 @@ pipeline {
     }
 
     post {
-    success {
-        script {
-            def branch = env.BRANCH_NAME ?: "master"
-            def duration = currentBuild.durationString ?: "N/A"
-            def reportUrl = "${env.BUILD_URL}allure/"
-            def msg = """✅ **接口自动化测试通过**
-> 项目：${env.JOB_NAME}
-> 构建：#${env.BUILD_NUMBER}
-> 分支：${branch}
-> 耗时：${duration}
-> 报告：[点击查看 Allure](${reportUrl})
-> 详情：${env.BUILD_URL}"""
-            sendWechat(msg)
+        success {
+            script {
+                def branch = env.BRANCH_NAME ?: 'master'
+                def duration = currentBuild.durationString ?: 'N/A'
+                def reportUrl = env.BUILD_URL + 'allure/'
+                def msg = '✅ 接口自动化测试通过\n> 项目：' + env.JOB_NAME + '\n> 构建：#' + env.BUILD_NUMBER + '\n> 分支：' + branch + '\n> 耗时：' + duration + '\n> 报告：' + reportUrl + '\n> 详情：' + env.BUILD_URL
+                sendWechat(msg)
+            }
         }
-    }
-    failure {
-        script {
-            def branch = env.BRANCH_NAME ?: "master"
-            def duration = currentBuild.durationString ?: "N/A"
-            def reportUrl = "${env.BUILD_URL}allure/"
-            def msg = """❌ **接口自动化测试失败**
-> 项目：${env.JOB_NAME}
-> 构建：#${env.BUILD_NUMBER}
-> 分支：${branch}
-> 耗时：${duration}
-> 报告：[点击查看 Allure](${reportUrl})
-> 详情：${env.BUILD_URL}console"""
-            sendWechat(msg)
+        failure {
+            script {
+                def branch = env.BRANCH_NAME ?: 'master'
+                def duration = currentBuild.durationString ?: 'N/A'
+                def reportUrl = env.BUILD_URL + 'allure/'
+                def msg = '❌ 接口自动化测试失败\n> 项目：' + env.JOB_NAME + '\n> 构建：#' + env.BUILD_NUMBER + '\n> 分支：' + branch + '\n> 耗时：' + duration + '\n> 报告：' + reportUrl + '\n> 详情：' + env.BUILD_URL + 'console'
+                sendWechat(msg)
+            }
         }
     }
 }
