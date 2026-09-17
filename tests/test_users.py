@@ -49,6 +49,7 @@ def _extract(resp, case, vars_pool):
 @allure.story("用户查询")
 def test_api(client, case, vars_pool):
     req = case["request"]
+    allure.dynamic.title(case["name"])
 
     # 替换 url 变量
     url = req["url"]
