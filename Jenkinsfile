@@ -36,29 +36,10 @@ pipeline {
     }
 
     post {
-        success {
+        always {
             script {
-                def dur = currentBuild.durationString ?: '见详情页'
-                def jenkinsUrl = env.JENKINS_URL ?: 'http://localhost:8080/'
-                def jobName = env.JOB_NAME ?: 'api-auto-test'
-                def buildNum = env.BUILD_NUMBER ?: '1'
-                // 手动拼接 BUILD_URL
-                def baseUrl = jenkinsUrl + 'job/' + jobName + '/' + buildNum + '/'
-                def repUrl = baseUrl + 'allure/'
-                def detUrl = baseUrl + 'console'
-                bat "python notify.py \"%WECHAT_WEBHOOK%\" success \"${dur}\" \"${repUrl}\" \"${detUrl}\""
-            }
-        }
-        failure {
-            script {
-                def dur = currentBuild.durationString ?: '见详情页'
-                def jenkinsUrl = env.JENKINS_URL ?: 'http://localhost:8080/'
-                def jobName = env.JOB_NAME ?: 'api-auto-test'
-                def buildNum = env.BUILD_NUMBER ?: '1'
-                def baseUrl = jenkinsUrl + 'job/' + jobName + '/' + buildNum + '/'
-                def repUrl = baseUrl + 'allure/'
-                def detUrl = baseUrl + 'console'
-                bat "python notify.py \"%WECHAT_WEBHOOK%\" failure \"${dur}\" \"${repUrl}\" \"${detUrl}\""
+                // 注入耗时供 conftest.py 读取
+                bat 'set BUILD_DURATION=' + currentBuild.durationString + ' && echo duration injected'
             }
         }
     }
