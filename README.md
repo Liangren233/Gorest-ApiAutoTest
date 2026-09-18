@@ -2,6 +2,8 @@
 
 基于 pytest + YAML 数据驱动的接口自动化测试框架,覆盖 GoREST API 四大资源模块(users/posts/comments/todos)的 CRUD 与负向场景,集成 Bearer 鉴权、Allure 分层报告、Jenkins CI 流水线与企微通知。
 
+> **[LEARNING.md](LEARNING.md)** —— 面向小白的学习文档,详解项目结构、变量流转、函数调用链路与 8 大核心机制
+
 ## 项目特性
 
 - **数据驱动**:用例与代码解耦,所有用例写在 YAML,新增用例零代码改动
@@ -98,24 +100,26 @@ allure serve report/tmp
 ```text
 Gorest-ApiAutoTest/
 ├── Jenkinsfile               # Jenkins Pipeline:Checkout → Setup → Run Tests → Allure,内置 triggers(pollSCM/cron)
-├── pytest.ini                # pytest 配置(含中文 ID 显示修复)
-├── requirements.txt         # Python 依赖清单
-├── README.md                 # 项目说明
-├── SETUP.md                  # 本地配置需求文档(clone 后必读)
-├── .env.example              # 环境变量模板
+├── pytest.ini                # pytest 配置(中文 ID 修复 + Allure 结果输出)
+├── requirements.txt          # Python 依赖清单
+├── README.md                 # 项目说明(本文档)
+├── LEARNING.md               # 小白学习文档:项目结构/变量流转/函数调用链路(新手必读)
+├── SETUP.md                  # 本地配置需求文档(clone 后必读,含校验清单 + FAQ)
+├── LICENSE                   # 开源许可证
+├── .env / .env.example       # 凭据:.env 真实(被 gitignore)/ .env.example 模板(入库)
 ├── .gitignore                # Git 忽略规则
 ├── config/
-│   └── env.yaml              # 多环境 base_url 配置(test/prod)
+│   └── env.yaml              # 多环境 base_url + token 变量名(test/prod)
 ├── core/
-│   ├── client.py             # ApiClient:HTTP 封装 + Bearer 鉴权 + auth override
-│   ├── yaml_util.py          # YAML 加载工具
-│   └── assertor.py           # 断言引擎:status / contains / schema 三档校验
+│   ├── client.py             # ApiClient:HTTP 封装 + Bearer 鉴权 + auth 开关
+│   ├── assertor.py           # 断言引擎:status / contains / schema 三档校验
+│   └── yaml_util.py          # YAML 加载工具
 ├── data/
 │   └── users.yaml            # 用例数据:42 条(24 happy + 18 负向)
 ├── report/
-│   └── tmp/                  # Allure 原始结果目录(自动清空重建)
+│   └── tmp/                  # Allure 原始结果(自动清空重建,被 gitignore)
 └── tests/
-    ├── conftest.py           # vars_pool 变量池 + cleanup 兜底 + 企微通知钩子
+    ├── conftest.py           # fixture(client/vars_pool)+ 参数化 + cleanup 兜底 + 企微通知
     └── test_users.py         # 测试主体:变量替换 + jsonpath 提取 + 断言
 ```
 

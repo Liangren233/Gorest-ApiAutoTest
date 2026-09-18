@@ -1,32 +1,37 @@
-import json
-from dataclasses import field
-from typing import cast
-
-
 class Assertor:
-    def __init__(self,resp,case_name):
-        self.resp=resp
-        self.case_name=case_name
+    """三档断言引擎:status(状态码)→ contains(字段值)→ schema(字段存在+类型)。
 
-    def assert_status(self,expected_status):
+    由弱到强,status 保底线、contains 校业务语义、schema 校结构契约。
+    """
+
+    def __init__(self, resp, case_name):
+        self.resp = resp
+        self.case_name = case_name
+
+    def assert_status(self, expected_status):
         actual = self.resp.status_code
-        assert actual==expected_status,f"[{self.case_name}]状态码断言失败，期望：{expected_status}，实际{actual}"
+        assert actual == expected_status, f"[{self.case_name}]状态码断言失败，期望：{expected_status}，实际{actual}"
 
-    def assert_contains(self,expects:dict):
+    def assert_contains(self, expects: dict):
+        """字段值精确匹配。
+
+        dict 响应直接比对字段值;list 响应(如 422 错误数组 [{"field":"email","message":"..."}])
+        用 any 遍历找是否存在元素含 field=value。
+        """
         actual = self.resp.json()
-        for k,v in expects.items():
+        for k, v in expects.items():
             if isinstance(actual, list):
                 # 422 错误响应是数组,检查是否存在元素的 field=value
                 found = any(isinstance(item, dict) and item.get(k) == v for item in actual)
                 assert found, f"[{self.case_name}]响应数组中未找到含 {k}={v} 的元素，实际：{actual}"
             else:
-                assert k in actual,f"[{self.case_name}]字段缺失：{k}"
-                assert actual[k] == v,f"[{self.case_name}]字段值不符：{k}期望{v}，实际{actual[k]}"
+                assert k in actual, f"[{self.case_name}]字段缺失：{k}"
+                assert actual[k] == v, f"[{self.case_name}]字段值不符：{k}期望{v}，实际{actual[k]}"
 
     def assert_schema(self, expected_schema: dict):
+        """字段存在性 + 类型校验(基于 isinstance,非 jsonschema,不支持正则/嵌套规则,可后续升级)。"""
         actual = self.resp.json()
-
-        # 如果响应是数组，取第一个元素做 schema 校验
+        # 响应是数组时取首元素做 schema 校验
         if isinstance(actual, list):
             assert len(actual) > 0, f"[{self.case_name}] 响应数组为空，无法校验 schema"
             actual = actual[0]
@@ -38,8 +43,9 @@ class Assertor:
                 assert isinstance(actual[field], eval(typ)), \
                     f"[{self.case_name}] 类型不符: {field} 期望{typ}, 实际{type(actual[field]).__name__}"
 
-    def run(self,expects:dict):
-        self.assert_status(expects.get("status",200))
+    def run(self, expects: dict):
+        """按 status → contains → schema 顺序执行,任一档失败即抛 AssertionError 终止该用例。"""
+        self.assert_status(expects.get("status", 200))
         if "contains" in expects:
             self.assert_contains(expects["contains"])
         if "schema" in expects:
