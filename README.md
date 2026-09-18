@@ -1,4 +1,4 @@
-# API 自动化测试框架
+# Gorest接口自动化测试框架
 
 基于 pytest + YAML 数据驱动接口自动化测试框架，支持跨用例变量关联、Bearer Token 鉴权、Allure 分层报告及 Jenkins + 企微通知。
 
@@ -20,7 +20,7 @@
 
 ### 克隆项目
 ```bash
-#gitee仓库(由于网络代理原因，建议暂时使用gitee仓库地址，对国内更友好)
+#gitee仓库(由于网络代理原因，建议优先使用gitee仓库地址，对国内更友好)
 git clone https://gitee.com/liangren2334/api-auto-test.git
 cd Gorest-ApiAutoTest-test
 
@@ -42,9 +42,17 @@ pip install -r requirements.txt
 GOREST_TOKEN=your_token_here
 ```
 
-### Jenkins 快速配置（必做）
+### 本地运行测试
+```
+pytest
+```
 
-> 以下为其他人使用本项目时必须手动完成的配置，缺一不可。
+### 本地查看 Allure 报告（需安装 Allure CLI）
+```bash
+allure serve report/tmp
+```
+
+### Jenkins 快速配置
 
 #### 1. 安装插件（Manage Jenkins → Plugins → Available）
 
@@ -78,7 +86,7 @@ GOREST_TOKEN=your_token_here
 2. 下滑到 **Pipeline** 配置区
 3. Definition 选 **Pipeline script from SCM**
 4. SCM 选 **Git**（Gitee 仓库选 **Gitee**，需先装 Gitee Plugin）
-5. Repository URL 填你的仓库地址（如 `https://gitee.com/liangren2334/api-auto-test`）
+5. Repository URL 填你的仓库地址（如 `https://gitee.com/liangren2334/Gorest-ApiAutoTest`）
 6. Credentials 选有权限拉代码的账号（Gitee 用私人 Token）
 7. Branch 填 `master`
 8. Script Path 填 `Jenkinsfile`
@@ -90,40 +98,30 @@ GOREST_TOKEN=your_token_here
 ✅ 2.构建页面出现 Allure Report​ 图标，点开可见用例报告\
 ✅ 3.企微群收到构建通知（配了 WECHAT_WEBHOOK 的前提下）
 
-### 本地运行测试
-```
-pytest
-```
-
-### 本地查看 Allure 报告（需安装 Allure CLI）
-```bash
-allure serve report/tmp
-```
-
 ## 目录结构
 
 ```text
 api-auto-test/
-├── conftest.py               # 根目录 conftest：注册 pytest 命令行参数 --env（test/prod），供 tests/conftest.py 中 run_env fixture 调用
+├── conftest.py               # 根目录 conftest
 ├── Jenkinsfile               # Jenkins Pipeline 定义：Checkout → Setup Python → Run Tests → Allure Report 归档
-├── pytest.ini                # pytest 全局配置：addopts（-s -v --alluredir=report/tmp --clean-alluredir）、markers 注册
-├── requirements.txt          # Python 依赖清单（pytest、requests、PyYAML、allure-pytest、jsonschema 等）
-├── README.md                 # 项目说明文档：技术栈、目录结构、快速启动、核心设计、扩展方向
-├── .env.example              # 环境变量模板：GOREST_TOKEN=your_token_here，供开发者复制为 .env 填入真实 Token
-├── .gitignore                # Git 忽略规则：.env、report/tmp/、__pycache__/、.pytest_cache/ 等
+├── pytest.ini                # pytest 全局配置
+├── requirements.txt          # Python 依赖清单
+├── README.md                 # 项目说明文档
+├── .env.example              # 环境变量模板：GOREST_TOKEN=your_token_here
+├── .gitignore                # Git 忽略规则
 ├── config/
-│   └── env.yaml              # 多环境 base_url 配置（test/prod），由 run_env fixture 读取对应环境的地址
+│   └── env.yaml              # 多环境 base_url 配置（test/prod）
 ├── core/
-│   ├── client.py             # ApiClient 封装：requests Session + Bearer Token 自动注入 + 统一请求/响应处理
-│   ├── yaml_util.py          # YAML 加载工具：读取 data/ 下用例文件，返回 dict/list 供参数化使用
+│   ├── client.py             # ApiClient 封装
+│   ├── yaml_util.py          # YAML 加载工具
 │   └── assertor.py           # 断言引擎：支持 status（HTTP 状态码）和 schema（字段存在性+类型）两档校验
 ├── data/
-│   └── users.yaml            # 用户模块测试用例数据：YAML 驱动，含 request/expects/extract 字段
+│   └── users.yaml            # 用户模块测试用例数据：YAML 驱动
 ├── report/
-│   └── tmp/                  # Allure 原始 JSON 结果目录（每次 pytest 启动由 --clean-alluredir 自动清空重建）
+│   └── tmp/                  # Allure 原始 JSON 结果目录（自动清空重建）
 └── tests/
-    ├── conftest.py           # 测试层 conftest：client fixture（注入 ApiClient）、vars_pool fixture（跨用例变量池）、run_env fixture（读取 --env）、pytest_generate_tests（YAML 参数化驱动）、pytest_sessionfinish（企微通知发送）
-    └── test_users.py         # 测试主体：test_api 用例函数，通过 Allure @step 装饰实现分层步骤（发请求→提取变量→断言→响应附件）
+    ├── conftest.py           # 测试层 conftest
+    └── test_users.py         # 测试主体
 ```
 
 ## 核心设计
