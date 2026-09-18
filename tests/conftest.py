@@ -14,7 +14,23 @@ def client():
 
 @pytest.fixture(scope="session")
 def vars_pool():
-    return {}
+    pool = {
+        "timestamp": int(time.time() * 1000),
+        "due_date": (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+        "__cleanup__": [],  # [(resource, id), ...] session 结束兜底删除
+    }
+    yield pool
+    # teardown: 兜底清理未删除的资源（用例中途失败时保底）
+    if pool["__cleanup__"]:
+        from core.client import ApiClient
+        cleaner = ApiClient()
+        print(f"\n[CLEANUP] session 结束，兜底清理 {len(pool['__cleanup__'])} 个资源")
+        for resource, rid in reversed(pool["__cleanup__"]):
+            try:
+                resp = cleaner.request("DELETE", f"/{resource}/{rid}")
+                print(f"  [CLEANUP] {resource}/{rid} -> {resp.status_code}")
+            except Exception as e:
+                print(f"  [CLEANUP] failed {resource}/{rid}: {e}")
 
 @pytest.fixture(scope="session")
 def run_env(request):
@@ -23,7 +39,8 @@ def run_env(request):
 def pytest_generate_tests(metafunc):
     if "case" in metafunc.fixturenames:
         from core.yaml_util import load_yaml
-        cases = load_yaml("data/users.yaml")
+        raw = load_yaml("data/users.yaml")          # ← 改文件名
+        cases = raw["cases"] if isinstance(raw, dict) and "cases" in raw else raw
         ids = [c.get("name", "未命名") for c in cases]
         metafunc.parametrize("case", cases, ids=ids)
 

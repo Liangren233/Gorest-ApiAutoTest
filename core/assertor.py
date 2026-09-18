@@ -15,8 +15,13 @@ class Assertor:
     def assert_contains(self,expects:dict):
         actual = self.resp.json()
         for k,v in expects.items():
-            assert k in actual,f"[{self.case_name}]字段缺失：{k}"
-            assert actual[k] == v,f"[{self.case_name}]字段值不符：{k}期望{v}，实际{actual[k]}"
+            if isinstance(actual, list):
+                # 422 错误响应是数组,检查是否存在元素的 field=value
+                found = any(isinstance(item, dict) and item.get(k) == v for item in actual)
+                assert found, f"[{self.case_name}]响应数组中未找到含 {k}={v} 的元素，实际：{actual}"
+            else:
+                assert k in actual,f"[{self.case_name}]字段缺失：{k}"
+                assert actual[k] == v,f"[{self.case_name}]字段值不符：{k}期望{v}，实际{actual[k]}"
 
     def assert_schema(self, expected_schema: dict):
         actual = self.resp.json()

@@ -1,9 +1,10 @@
 pipeline {
     agent any
 
+    // 触发器:每5分钟轮询仓库,有新提交自动构建;每天 02:00 定时全量构建
     triggers {
-        pollSCM('H/5 * * * *')
-        cron('H 2 * * *')
+        pollSCM('H/5 * * * *')   // 每5分钟轮询 SCM,有更新才触发
+        cron('0 2 * * *')        // 每天 02:00 定时执行
     }
 
     environment {

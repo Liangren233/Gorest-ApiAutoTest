@@ -1,25 +1,460 @@
-- name: 查询用户列表并提取首个ID
-  request:
-    method: GET
-    url: /users?page=1&per_page=1
-  expects:
-    status: 200
-    schema:
-      id:
-        type: int
-      name:
-        type: str
-  extract:
-    user_id: $.id
+cases:
+  # ==================== USERS ====================
+  - name: "查询用户列表"
+    request:
+      method: GET
+      url: "/users"
+      params:
+        page: 1
+        per_page: 2
+    expects:
+      status: 200
+    extract:
+      user_id: "$[0].id"
 
-- name: 查询提取到的ID对应的用户
-  request:
-    method: GET
-    url: /users/${user_id}
-  expects:
-    status: 200
-    schema:
-      id:
-        type: int
-      email:
-        type: str
+  - name: "查询指定用户详情"
+    request:
+      method: GET
+      url: "/users/${user_id}"
+    expects:
+      status: 200
+
+  - name: "创建新用户"
+    request:
+      method: POST
+      url: "/users"
+      json:
+        name: "AutoTest User ${timestamp}"
+        email: "autotest_${timestamp}@example.com"
+        gender: "male"
+        status: "active"
+    expects:
+      status: 201
+    extract:
+      created_user_id: $.id
+      created_user_email: $.email
+    cleanup:
+      - "users:${created_user_id}"
+
+  - name: "更新刚创建的用户"
+    request:
+      method: PATCH
+      url: "/users/${created_user_id}"
+      json:
+        name: "Updated AutoTest User"
+        status: "inactive"
+    expects:
+      status: 200
+
+  - name: "删除刚创建的用户"
+    request:
+      method: DELETE
+      url: "/users/${created_user_id}"
+    expects:
+      status: 204
+
+  - name: "验证用户已被删除"
+    request:
+      method: GET
+      url: "/users/${created_user_id}"
+    expects:
+      status: 404
+
+  # ==================== POSTS ====================
+  - name: "查询帖子列表"
+    request:
+      method: GET
+      url: "/posts"
+      params:
+        page: 1
+        per_page: 2
+    expects:
+      status: 200
+    extract:
+      post_id: "$[0].id"
+
+  - name: "查询指定帖子详情"
+    request:
+      method: GET
+      url: "/posts/${post_id}"
+    expects:
+      status: 200
+
+  - name: "创建新帖子"
+    request:
+      method: POST
+      url: "/posts"
+      json:
+        user_id: ${user_id}
+        title: "AutoTest Post ${timestamp}"
+        body: "This is an automated test post"
+    expects:
+      status: 201
+    extract:
+      created_post_id: $.id
+    cleanup:
+      - "posts:${created_post_id}"
+
+  - name: "更新刚创建的帖子"
+    request:
+      method: PATCH
+      url: "/posts/${created_post_id}"
+      json:
+        title: "Updated AutoTest Post"
+    expects:
+      status: 200
+
+  - name: "删除刚创建的帖子"
+    request:
+      method: DELETE
+      url: "/posts/${created_post_id}"
+    expects:
+      status: 204
+
+  - name: "验证帖子已被删除"
+    request:
+      method: GET
+      url: "/posts/${created_post_id}"
+    expects:
+      status: 404
+
+  # ==================== COMMENTS ====================
+  - name: "查询评论列表"
+    request:
+      method: GET
+      url: "/comments"
+      params:
+        page: 1
+        per_page: 2
+    expects:
+      status: 200
+    extract:
+      comment_id: "$[0].id"
+
+  - name: "查询指定评论详情"
+    request:
+      method: GET
+      url: "/comments/${comment_id}"
+    expects:
+      status: 200
+
+  - name: "创建新评论"
+    request:
+      method: POST
+      url: "/comments"
+      json:
+        post_id: ${post_id}
+        name: "AutoTest Commenter"
+        email: "commenter_${timestamp}@example.com"
+        body: "This is an automated test comment"
+    expects:
+      status: 201
+    extract:
+      created_comment_id: $.id
+    cleanup:
+      - "comments:${created_comment_id}"
+
+  - name: "更新刚创建的评论"
+    request:
+      method: PATCH
+      url: "/comments/${created_comment_id}"
+      json:
+        body: "Updated automated test comment"
+    expects:
+      status: 200
+
+  - name: "删除刚创建的评论"
+    request:
+      method: DELETE
+      url: "/comments/${created_comment_id}"
+    expects:
+      status: 204
+
+  - name: "验证评论已被删除"
+    request:
+      method: GET
+      url: "/comments/${created_comment_id}"
+    expects:
+      status: 404
+
+  # ==================== TODOS ====================
+  - name: "查询待办列表"
+    request:
+      method: GET
+      url: "/todos"
+      params:
+        page: 1
+        per_page: 2
+    expects:
+      status: 200
+    extract:
+      todo_id: "$[0].id"
+
+  - name: "查询指定待办详情"
+    request:
+      method: GET
+      url: "/todos/${todo_id}"
+    expects:
+      status: 200
+
+  - name: "创建新待办"
+    request:
+      method: POST
+      url: "/todos"
+      json:
+        user_id: ${user_id}
+        title: "AutoTest Todo ${timestamp}"
+        due_on: "${due_date}"
+        status: "pending"
+    expects:
+      status: 201
+    extract:
+      created_todo_id: $.id
+    cleanup:
+      - "todos:${created_todo_id}"
+
+  - name: "更新刚创建的待办"
+    request:
+      method: PATCH
+      url: "/todos/${created_todo_id}"
+      json:
+        status: "completed"
+    expects:
+      status: 200
+
+  - name: "删除刚创建的待办"
+    request:
+      method: DELETE
+      url: "/todos/${created_todo_id}"
+    expects:
+      status: 204
+
+  - name: "验证待办已被删除"
+    request:
+      method: GET
+      url: "/todos/${created_todo_id}"
+    expects:
+      status: 404
+
+  # ==================== 负向用例 ====================
+  # 422 响应体为 list,assert_contains 不适用,仅断状态码
+  # 401/404 响应体为 dict,可用 contains.message 精确匹配
+
+  # -------------------- 401 鉴权失败 --------------------
+  # GoREST 公开 GET 接口无需鉴权,401 仅在 POST 无 token 时稳定触发
+  # (PATCH/DELETE 无 token 时 GoREST 返回 404,行为不一致,故不覆盖)
+  - name: "负向-无token创建用户"
+    request:
+      method: POST
+      url: "/users"
+      auth: false
+      json:
+        name: "No Auth User"
+        email: "noauth_${timestamp}@example.com"
+        gender: "male"
+        status: "active"
+    expects:
+      status: 401
+      contains:
+        message: "Authentication failed"
+
+  # -------------------- 404 资源不存在 --------------------
+  - name: "负向-查询不存在的用户"
+    request:
+      method: GET
+      url: "/users/9999999999"
+    expects:
+      status: 404
+      contains:
+        message: "Resource not found"
+
+  - name: "负向-更新不存在的用户"
+    request:
+      method: PATCH
+      url: "/users/9999999999"
+      json:
+        name: "Ghost User"
+    expects:
+      status: 404
+
+  - name: "负向-删除不存在的用户"
+    request:
+      method: DELETE
+      url: "/users/9999999999"
+    expects:
+      status: 404
+
+  - name: "负向-查询不存在的帖子"
+    request:
+      method: GET
+      url: "/posts/9999999999"
+    expects:
+      status: 404
+      contains:
+        message: "Resource not found"
+
+  - name: "负向-查询不存在的评论"
+    request:
+      method: GET
+      url: "/comments/9999999999"
+    expects:
+      status: 404
+      contains:
+        message: "Resource not found"
+
+  - name: "负向-查询不存在的待办"
+    request:
+      method: GET
+      url: "/todos/9999999999"
+    expects:
+      status: 404
+      contains:
+        message: "Resource not found"
+
+  # -------------------- 422 字段缺失 / 枚举非法 / 格式非法 --------------------
+  - name: "负向-创建用户缺name"
+    request:
+      method: POST
+      url: "/users"
+      json:
+        email: "neg_${timestamp}@example.com"
+        gender: "male"
+        status: "active"
+    expects:
+      status: 422
+      contains:
+        field: "name"
+
+  - name: "负向-创建用户缺email"
+    request:
+      method: POST
+      url: "/users"
+      json:
+        name: "Negative Test"
+        gender: "male"
+        status: "active"
+    expects:
+      status: 422
+      contains:
+        field: "email"
+
+  - name: "负向-创建用户gender枚举非法"
+    request:
+      method: POST
+      url: "/users"
+      json:
+        name: "Negative Test"
+        email: "neg_${timestamp}@example.com"
+        gender: "invalid"
+        status: "active"
+    expects:
+      status: 422
+      contains:
+        field: "gender"
+
+  - name: "负向-创建用户status枚举非法"
+    request:
+      method: POST
+      url: "/users"
+      json:
+        name: "Negative Test"
+        email: "neg_${timestamp}@example.com"
+        gender: "male"
+        status: "invalid"
+    expects:
+      status: 422
+      contains:
+        field: "status"
+
+  - name: "负向-创建用户email格式非法"
+    request:
+      method: POST
+      url: "/users"
+      json:
+        name: "Negative Test"
+        email: "not-an-email"
+        gender: "male"
+        status: "active"
+    expects:
+      status: 422
+      contains:
+        field: "email"
+
+  - name: "负向-创建帖子缺title"
+    request:
+      method: POST
+      url: "/posts"
+      json:
+        user_id: ${user_id}
+        body: "Missing title field"
+    expects:
+      status: 422
+      contains:
+        field: "title"
+
+  - name: "负向-创建评论缺post_id"
+    request:
+      method: POST
+      url: "/comments"
+      json:
+        name: "Negative Commenter"
+        email: "neg_${timestamp}@example.com"
+        body: "Missing post_id field"
+    expects:
+      status: 422
+      contains:
+        field: "post_id"
+
+  - name: "负向-创建待办status枚举非法"
+    request:
+      method: POST
+      url: "/todos"
+      json:
+        user_id: ${user_id}
+        title: "Negative Todo"
+        due_on: "${due_date}"
+        status: "invalid"
+    expects:
+      status: 422
+      contains:
+        field: "status"
+
+  # -------------------- 422 邮箱已占用 --------------------
+  - name: "负向-创建占位用户(用于邮箱占用测试)"
+    request:
+      method: POST
+      url: "/users"
+      json:
+        name: "Placeholder User"
+        email: "placeholder_${timestamp}@example.com"
+        gender: "male"
+        status: "active"
+    expects:
+      status: 201
+    extract:
+      placeholder_user_id: $.id
+      placeholder_user_email: $.email
+    cleanup:
+      - "users:${placeholder_user_id}"
+
+  - name: "负向-用已占用邮箱创建用户"
+    request:
+      method: POST
+      url: "/users"
+      json:
+        name: "Duplicate User"
+        email: "${placeholder_user_email}"
+        gender: "female"
+        status: "inactive"
+    expects:
+      status: 422
+      contains:
+        field: "email"
+        message: "has already been taken"
+
+  - name: "负向-清理占位用户"
+    request:
+      method: DELETE
+      url: "/users/${placeholder_user_id}"
+    expects:
+      status: 204
