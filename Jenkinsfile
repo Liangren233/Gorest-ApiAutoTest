@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    triggers {
+        pollSCM('H/5 * * * *')
+        cron('H 2 * * *')
+    }
+
     environment {
         GOREST_TOKEN = credentials('gorest-token')
         WECHAT_WEBHOOK = credentials('wechat-webhook')

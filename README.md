@@ -1,6 +1,6 @@
 # Gorest接口自动化测试框架
 
-基于 pytest + YAML 数据驱动接口自动化测试框架，支持跨用例变量关联、Bearer Token 鉴权、Allure 分层报告及 Jenkins + 企微通知。
+基于 pytest + YAML 数据驱动接口自动化测试框架，支持跨用例变量关联、Bearer Token 鉴权、Allure 分层报告及 Jenkins定时/轮询构建 + 企微通知。
 
 ## 技术栈
 
