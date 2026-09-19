@@ -100,7 +100,7 @@ allure serve report/tmp
 ```text
 Gorest-ApiAutoTest/
 ├── Jenkinsfile               # Jenkins Pipeline:Checkout → Setup → Run Tests → Allure,内置 triggers(pollSCM/cron)
-├── pytest.ini                # pytest 配置(中文 ID 修复 + Allure 结果输出)
+├── pytest.ini                # pytest 配置(pythonpath + 中文 ID 修复 + Allure 结果输出)
 ├── requirements.txt          # Python 依赖清单
 ├── README.md                 # 项目说明(本文档)
 ├── LEARNING.md               # 小白学习文档:项目结构/变量流转/函数调用链路(新手必读)
@@ -110,17 +110,18 @@ Gorest-ApiAutoTest/
 ├── .gitignore                # Git 忽略规则
 ├── config/
 │   └── env.yaml              # 多环境 base_url + token 变量名(test/prod)
-├── core/
-│   ├── client.py             # ApiClient:HTTP 封装 + Bearer 鉴权 + auth 开关
+├── core/                     # 核心层:可复用能力,不依赖 pytest 协议
+│   ├── client.py             # ApiClient:环境加载 + HTTP 封装 + Bearer 鉴权 + auth 开关
+│   ├── context.py            # 用例数据流转:load_yaml 加载 / ${var} 替换 / JSONPath 提取
 │   ├── assertor.py           # 断言引擎:status / contains / schema 三档校验
-│   └── yaml_util.py          # YAML 加载工具
+│   └── notifier.py           # 企微通知:消息组装 + 发送(纯函数)
 ├── data/
 │   └── users.yaml            # 用例数据:42 条(24 happy + 18 负向)
 ├── report/
 │   └── tmp/                  # Allure 原始结果(自动清空重建,被 gitignore)
-└── tests/
-    ├── conftest.py           # fixture(client/vars_pool)+ 参数化 + cleanup 兜底 + 企微通知
-    └── test_users.py         # 测试主体:变量替换 + jsonpath 提取 + 断言
+└── tests/                    # 测试层:pytest 粘合 + 用例编排
+    ├── conftest.py           # fixture + 参数化 + cleanup 兜底 + 薄钩子(业务委托 core/)
+    └── test_users.py         # 单一 test_api:替换 → 请求 → 提取 → 清理注册 → 断言
 ```
 
 ## 核心设计
@@ -263,7 +264,7 @@ Jenkinsfile 定义完整流水线,内置两种触发策略:
 | 轮询 SCM | `pollSCM('H/5 * * * *')` | 每5分钟检查仓库,有新提交才触发构建 |
 | 定时构建 | `cron('0 2 * * *')` | 每天 02:00 全量执行 |
 
-企微通知通过 `pytest_sessionfinish` 钩子发送,内容含项目名 / 构建号 / 开始时间 / 耗时 / 通过-失败-跳过统计;构建失败 `@all`,成功静默通知;未配 `WECHAT_WEBHOOK` 则静默跳过。
+企微通知分两层:conftest 的 `pytest_sessionfinish` 薄钩子只负责取统计结果,消息组装与 HTTP 发送在 [core/notifier.py](core/notifier.py)(纯函数,便于扩展钉钉/邮件渠道);内容含项目名 / 构建号 / 开始时间 / 耗时 / 通过-失败-跳过统计;构建失败 `@all`,成功静默通知;未配 `WECHAT_WEBHOOK` 则静默跳过。
 
 ## 用例覆盖矩阵
 

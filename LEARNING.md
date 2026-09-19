@@ -19,7 +19,7 @@
 
 ```text
 Gorest-ApiAutoTest/
-├── pytest.ini                # ① pytest 配置:中文用例名不转义、默认出 Allure 结果
+├── pytest.ini                # ① pytest 配置:pythonpath、中文用例名不转义、默认出 Allure 结果
 ├── Jenkinsfile               # ② Jenkins 流水线:轮询+定时触发,跑测试+出报告
 ├── requirements.txt          # ③ Python 依赖清单
 ├── .env / .env.example       # ④ 凭据:GOREST_TOKEN(真实/模板)
@@ -27,27 +27,28 @@ Gorest-ApiAutoTest/
 ├── config/
 │   └── env.yaml              # ⑤ 多环境配置:test/prod 的 base_url + token 变量名
 │
-├── core/                     # ===== 核心层(通用能力,不含测试逻辑)=====
-│   ├── client.py             # ⑥ ApiClient:HTTP 封装 + Bearer 鉴权 + auth 开关
-│   ├── yaml_util.py           # ⑦ load_yaml:读 YAML 文件
-│   └── assertor.py           # ⑧ Assertor:三档断言(status/contains/schema)
+├── core/                     # ===== 核心层(通用能力,不含 pytest 协议)=====
+│   ├── client.py             # ⑥ ApiClient:环境配置加载 + HTTP 封装 + Bearer 鉴权 + auth 开关
+│   ├── context.py            # ⑦ 用例数据流转:load_yaml 加载 / resolve 变量替换 / extract 提取
+│   ├── assertor.py           # ⑧ Assertor:三档断言(status/contains/schema)
+│   └── notifier.py           # ⑨ 企微通知:消息组装+发送(纯函数,不依赖 pytest)
 │
 ├── data/
-│   └── users.yaml            # ⑨ 用例数据:42 条用例全在这里(数据驱动核心)
+│   └── users.yaml            # ⑩ 用例数据:42 条用例全在这里(数据驱动核心)
 │
 ├── tests/
-│   ├── conftest.py           # ⑩ pytest 钩子:fixture(client/vars_pool)+ 参数化+企微通知
-│   └── test_users.py         # ⑪ 测试主体:变量替换+提取+断言+Allure 步骤
+│   ├── conftest.py           # ⑪ pytest 粘合层:fixture + 参数化 + 薄钩子(业务委托 core/)
+│   └── test_users.py         # ⑫ 测试主体:只剩 test_api 一个函数(编排,不写框架细节)
 │
-└── report/tmp/               # ⑫ Allure 原始结果(每次自动清空重建)
+└── report/tmp/               # ⑬ Allure 原始结果(每次自动清空重建)
 ```
 
 **三层分工**(重点理解):
 | 层 | 目录 | 职责 | 改动频率 |
 |---|---|---|---|
 | 数据层 | `data/` | 存用例 | 经常改(加用例) |
-| 核心层 | `core/` | HTTP/断言/YAML 加载等通用能力 | 很少改 |
-| 测试层 | `tests/` | fixture + 测试函数 + 钩子 | 偶尔改 |
+| 核心层 | `core/` | HTTP/断言/数据流转/通知等可复用能力 | 很少改 |
+| 测试层 | `tests/` | pytest 粘合层(fixture/钩子)+ 测试函数编排 | 偶尔改 |
 
 ---
 
@@ -62,7 +63,7 @@ Gorest-ApiAutoTest/
 
 2. pytest 收集阶段(还没跑用例)
    ├─ 读 tests/conftest.py,发现 pytest_generate_tests 钩子  ← 关键!
-   ├─ 钩子调用 load_yaml("data/users.yaml") 读到 42 条 case
+   ├─ 钩子调用 core.context.load_yaml("data/users.yaml") 读到 42 条 case
    ├─ 对每条 case 调 metafunc.parametrize("case", cases, ids=[用例名])
    └─ 结果:生成 42 条 test_api[用例名] 测试 ID
    (此时用例还没执行,只是"登记"了 42 条要跑)
@@ -75,10 +76,10 @@ Gorest-ApiAutoTest/
    对每条用例:
    ├─ 注入 client fixture(每次新建 ApiClient)
    ├─ 注入 vars_pool fixture(session 级,整个 session 共享一个)
-   ├─ test_api(case, client, vars_pool) 执行:
-   │   ├─ _resolve:把 url/json/params 里的 ${var} 替换成 vars_pool 的值
+   ├─ test_api(case, client, vars_pool) 执行(只做编排,能力在 core/):
+   │   ├─ context.resolve:把 url/json/params 里的 ${var} 替换成 vars_pool 的值
    │   ├─ client.request(...):发 HTTP 请求(默认带 token)
-   │   ├─ _extract:从响应按 JSONPath 提取字段写入 vars_pool
+   │   ├─ context.extract:从响应按 JSONPath 提取字段写入 vars_pool
    │   ├─ 注册 cleanup(若 case 有 cleanup 字段且提取到 id)
    │   └─ Assertor(resp).run(expects):三档断言
    └─ Allure 记录每个 step
@@ -86,7 +87,7 @@ Gorest-ApiAutoTest/
 5. session 结束
    ├─ vars_pool fixture teardown:遍历 __cleanup__ 兜底 DELETE 资源
    ├─ pytest_sessionfinish 钩子:统计 passed/failed/skipped
-   └─ 若配了 WECHAT_WEBHOOK,发企微通知
+   └─ 委托 core.notifier.notify:若配了 WECHAT_WEBHOOK,发企微通知
 ```
 
 ---
@@ -116,11 +117,11 @@ Gorest-ApiAutoTest/
     - "users:${created_user_id}"
 ```
 
-**实现**:在 [conftest.py#L39-L45](file:///core/../tests/conftest.py#L39-L45):
+**实现**:在 [tests/conftest.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/tests/conftest.py) 的 `pytest_generate_tests` 钩子:
 ```python
 def pytest_generate_tests(metafunc):
     if "case" in metafunc.fixturenames:
-        raw = load_yaml("data/users.yaml")
+        raw = load_yaml("data/users.yaml")   # load_yaml 来自 core.context
         cases = raw["cases"]
         ids = [c.get("name", "未命名") for c in cases]
         metafunc.parametrize("case", cases, ids=ids)
@@ -134,7 +135,7 @@ def pytest_generate_tests(metafunc):
 
 **是什么**:一个 dict,整个 session(一次 pytest 运行)所有用例共享同一个。
 
-**初始化**([conftest.py#L15-L22](file:///core/../tests/conftest.py#L15-L22)):
+**初始化**([tests/conftest.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/tests/conftest.py) 的 `vars_pool` fixture):
 ```python
 @pytest.fixture(scope="session")
 def vars_pool():
@@ -160,10 +161,10 @@ session 结束 → yield 之后的 teardown 跑 cleanup
 
 ### 4.3 变量替换 ${var}
 
-**在哪做**:test_api 函数里,发请求**之前**([test_users.py#L9-L15](file:///core/../tests/test_users.py#L9-L15))。
+**在哪做**:test_api 发请求**之前**,调用 [core/context.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/core/context.py) 的 `resolve`。
 
 ```python
-def _resolve(text, vars_pool):
+def resolve(text, vars_pool):
     for k, v in vars_pool.items():
         text = text.replace(f"${{{k}}}", str(v))   # ${user_id} → 实际 id
     return text
@@ -172,15 +173,15 @@ def _resolve(text, vars_pool):
 **例子**:
 - vars_pool 里有 `user_id=123`
 - case 的 url 是 `/users/${user_id}`
-- `_resolve` 把它变成 `/users/123` 再发请求
+- `resolve` 把它变成 `/users/123` 再发请求
 
-`_resolve_obj` 是递归版,处理 dict/list 里的嵌套字符串(如 json body 里的 `${timestamp}`)。
+`resolve_obj` 是递归版,处理 dict/list 里的嵌套字符串(如 json body 里的 `${timestamp}`)。
 
-**为什么不在 client 层做**:client 是通用 HTTP 工具,不该知道测试变量语义;且替换需要 vars_pool 上下文,client 无状态。**关注点分离**。
+**为什么在 core 层而不在 client 层**:client 是通用 HTTP 工具,不该知道测试变量语义;且替换需要 vars_pool 上下文,client 无状态。变量替换属于"用例数据运行时处理",故与 load_yaml/extract 同居 context.py。**关注点分离**。
 
-### 4.4 JSONPath 提取 _extract
+### 4.4 JSONPath 提取 extract
 
-**作用**:从响应 JSON 按 JSONPath 表达式取字段,写入 vars_pool。
+**作用**:从响应 JSON 按 JSONPath 表达式取字段,写入 vars_pool。实现在 [core/context.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/core/context.py) 的 `extract`。
 
 **两种表达式**:
 | 表达式 | 响应结构 | 取什么 |
@@ -188,18 +189,18 @@ def _resolve(text, vars_pool):
 | `$.id` | `{"id":1,...}`(dict) | 根对象 id |
 | `$[0].id` | `[{"id":1},...]`(list) | 数组首元素 id |
 
-**流程**([test_users.py#L29-L73](file:///core/../tests/test_users.py#L29-L73)):
+**流程**:
 ```text
-resp.json() → 按 expr 提取 → val 写入 vars_pool[var_name]
+resp.json() → jsonpath.jsonpath(data, expr) → val 写入 vars_pool[var_name]
 ```
 
 **例子**:用例"查询用户列表"响应是 `[{"id":123,...}, {...}]`,extract 配 `user_id: "$[0].id"`,提取后 `vars_pool["user_id"]=123`,后续用例 url 用 `/users/${user_id}` 就能引用。
 
-**提取失败怎么办**:val 为 None 时打印 `[WARN]` 但**不中断**,vars_pool 里该变量保持不存在。后续 `${var}` 替换时找不到就原样保留,通常导致 404。这是之前踩过的坑(见 FAQ)。
+**提取失败怎么办**:jsonpath 无匹配时打印 `[WARN]` 但**不中断**,vars_pool 里该变量保持不存在。后续 `${var}` 替换时找不到就原样保留,通常导致 404。这是之前踩过的坑(见 FAQ)。
 
 ### 4.5 三档断言引擎 Assertor
 
-**三档由弱到强**([assertor.py](file:///core/../core/assertor.py)):
+**三档由弱到强**([core/assertor.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/core/assertor.py)):
 
 | 档位 | 方法 | 校验什么 | 失败信息 |
 |---|---|---|---|
@@ -211,9 +212,9 @@ resp.json() → 按 expr 提取 → val 写入 vars_pool[var_name]
 ```json
 [{"field":"email","message":"has already been taken"}]
 ```
-所以 `assert_contains` 检测到响应是 list 时,用 `any(...)` 遍历找是否存在元素含 `field=email`([assertor.py#L18-L21](file:///core/../core/assertor.py#L18-L21))。dict 响应则直接比对字段值。
+所以 `assert_contains` 检测到响应是 list 时,用 `any(...)` 遍历找是否存在元素含 `field=email`([core/assertor.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/core/assertor.py))。dict 响应则直接比对字段值。
 
-**run 方法**([assertor.py#L41-L45](file:///core/../core/assertor.py#L41-L45))按顺序跑三档:
+**run 方法**([core/assertor.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/core/assertor.py))按顺序跑三档:
 ```python
 def run(self, expects):
     self.assert_status(expects.get("status", 200))   # 1. 先断状态码
@@ -224,7 +225,7 @@ def run(self, expects):
 
 ### 4.6 鉴权控制 auth
 
-**默认行为**:client.request 自动从环境变量读 `GOREST_TOKEN`,注入 `Authorization: Bearer <token>` 头([client.py#L18-L27](file:///core/../core/client.py#L18-L27))。
+**默认行为**:client.request 自动从环境变量读 `GOREST_TOKEN`,注入 `Authorization: Bearer <token>` 头([core/client.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/core/client.py))。
 
 **auth=false 覆盖**:case 的 request 里写 `auth: false`,test_api 透传给 client.request,跳过 token 注入 → 触发 401 鉴权失败场景。
 
@@ -240,8 +241,8 @@ case.request.auth(默认True) → test_api 读取 → client.request(auth=...) �
 
 **机制**:
 1. case 有 `cleanup: ["users:${created_user_id}"]` 字段
-2. test_api 在 extract 之后,把 `"users:123"` append 到 `vars_pool["__cleanup__"]`([test_users.py](file:///core/../tests/test_users.py))
-3. session 结束,vars_pool fixture 的 yield 之后 teardown 执行([conftest.py#L24-L33](file:///core/../tests/conftest.py#L24-L33)):
+2. test_api 在 extract 之后,把 `"users:123"` append 到 `vars_pool["__cleanup__"]`
+3. session 结束,vars_pool fixture 的 yield 之后 teardown 执行([tests/conftest.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/tests/conftest.py)):
 ```python
 yield pool
 # ↓ session 结束到这里
@@ -259,7 +260,9 @@ if pool["__cleanup__"]:
 
 ### 4.8 企微通知
 
-**触发点**:`pytest_sessionfinish` 钩子(session 全部结束,[conftest.py#L91-L128](file:///core/../tests/conftest.py#L91-L128))。
+**职责拆分**:
+- [tests/conftest.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/tests/conftest.py) 只保留 pytest 薄钩子:`pytest_sessionfinish` 把统计结果委托出去
+- [core/notifier.py](file:///c:/Users/zdd20/PycharmProjects/PythonProject1/Gorest-ApiAutoTest/core/notifier.py) 承担业务:`build_message` 组装 markdown + `send_wechat` 发送 + `notify` 门面(未配 webhook 静默跳过)
 
 **数据来源**:
 - passed/failed/skipped:由 `pytest_runtest_makereport` 钩子每条用例结束后累加到 `_test_stats`
@@ -268,6 +271,8 @@ if pool["__cleanup__"]:
 
 **通知内容**:markdown 格式,含项目名/构建号/开始时间/耗时/通过-失败-跳过统计。失败 `@all`,成功静默。没配 `WECHAT_WEBHOOK` 则跳过。
 
+**为什么业务逻辑放 core/**:通知与 pytest 协议无关,纯函数便于单测,未来加钉钉/邮件渠道只改 notifier.py,conftest 不动。
+
 ---
 
 ## 五、函数调用关系总图
@@ -275,30 +280,31 @@ if pool["__cleanup__"]:
 ```text
 pytest 启动
 │
-├─ pytest_generate_tests(metafunc)              [conftest.py]
-│   └─ load_yaml("data/users.yaml")            [yaml_util.py]
+├─ pytest_generate_tests(metafunc)              [tests/conftest.py]
+│   └─ load_yaml("data/users.yaml")            [core/context.py]
 │       └─ metafunc.parametrize("case", cases)  → 生成 42 条用例 ID
 │
-├─ pytest_sessionstart(session)                [conftest.py] → 记录开始时间
+├─ pytest_sessionstart(session)                [tests/conftest.py] → 记录开始时间
 │
-└─ 对每条 case 执行 test_api(client, case, vars_pool)  [test_users.py]
+└─ 对每条 case 执行 test_api(client, case, vars_pool)  [tests/test_users.py](只编排)
     │
-    ├─ _resolve_obj(req["json"], vars_pool)     → 替换 ${var}
-    ├─ client.request(method, url, auth, ...)   [client.py]
+    ├─ resolve_obj(req["json"], vars_pool)      [core/context.py] → 替换 ${var}
+    ├─ client.request(method, url, auth, ...)   [core/client.py]
     │   └─ requests.request(...)                → 真实 HTTP
     │
-    ├─ _extract(resp, case, vars_pool)          → JSONPath 提取写回 vars_pool
+    ├─ extract(resp, extract_cfg, vars_pool)    [core/context.py] → JSONPath 提取写回 vars_pool
     │   (若 case.cleanup 且提取到 id → append __cleanup__)
     │
-    └─ Assertor(resp, name).run(expects)        [assertor.py]
+    └─ Assertor(resp, name).run(expects)        [core/assertor.py]
         ├─ assert_status
         ├─ assert_contains
         └─ assert_schema
 
 session 结束
 │
-├─ vars_pool teardown                           [conftest.py] → 兜底 DELETE __cleanup__
-└─ pytest_sessionfinish                         [conftest.py] → 企微通知
+├─ vars_pool teardown                           [tests/conftest.py] → 兜底 DELETE __cleanup__
+└─ pytest_sessionfinish                         [tests/conftest.py]
+    └─ notifier.notify(...)                     [core/notifier.py] → 企微通知
 ```
 
 ---
@@ -318,21 +324,21 @@ case 数据:
 ```text
 1. pytest 注入 vars_pool(session 级,此时已有 timestamp=1789718766889)
 2. test_api 拿到 case
-3. _resolve_obj(req["json"], vars_pool):
+3. resolve_obj(req["json"], vars_pool):
    json = {name: "AutoTest User 1789718766889", email: "autotest_1789718766889@example.com", ...}
-4. url = _resolve("/users", vars_pool) = "/users"(无变量)
+4. url = resolve("/users", vars_pool) = "/users"(无变量)
 5. client.request("POST", "/users", auth=True, json=...):
    ├─ 拼 full_url = "https://gorest.co.in/public/v2/users"
    ├─ 注入 headers["Authorization"] = "Bearer 67a99a..."
    └─ requests.request("POST", full_url, headers=..., json=...) → resp
    resp.status_code = 201, resp.json() = {"id":8627078, "name":..., "email":...}
-6. _extract(resp, case, vars_pool):
+6. extract(resp, extract_cfg, vars_pool):
    extract_cfg = {created_user_id: "$.id"}
-   响应是 dict → val = resp.json()["id"] = 8627078
+   jsonpath 匹配 → val = resp.json()["id"] = 8627078
    vars_pool["created_user_id"] = 8627078
 7. 注册 cleanup:
    case 有 cleanup: ["users:${created_user_id}"]
-   _resolve 后 = "users:8627078"
+   resolve 后 = "users:8627078"
    vars_pool["__cleanup__"].append(("users", 8627078))
 8. Assertor(resp, "创建新用户").run({status: 201}):
    assert resp.status_code == 201 → 通过
@@ -352,7 +358,7 @@ session 开始:
   vars_pool += {user_id: 123}
 
 用例2 [查询指定用户详情]:
-  url: "/users/${user_id}" → _resolve → "/users/123"
+  url: "/users/${user_id}" → resolve → "/users/123"
   (无 extract)
 
 用例3 [创建新用户]:
@@ -453,8 +459,8 @@ A: 不能。session 级 vars_pool 是共享状态,pytest-xdist 并行时多 work
 **Q5: 如果创建用例失败了(422),cleanup 会注册吗?**
 A: 不会。注册前提是 extract 提取到 id,创建失败响应没 id,extract 拿 None 不写入,也不注册 cleanup。所以不会泄漏。
 
-**Q6: ${var} 替换在 client 层还是 test 层?**
-A: test 层(test_api 里),发请求之前。client 层不感知测试变量,保持通用。
+**Q6: ${var} 替换在哪一层做?**
+A: 测试编排层(test_api)调用 core.context.resolve,在发请求之前完成。client 层不感知测试变量,保持通用;替换/提取/加载等同属"用例数据运行时处理"的函数集中在 core/context.py,供所有 test_*.py 复用。
 
 **Q7: 为什么用 YAML 不用 Excel?**
 A: YAML 支持注释/嵌套/git diff 友好;Excel 嵌套结构表达难且二进制 diff 不好。接口测试 json body 是嵌套的,YAML 最合适。
