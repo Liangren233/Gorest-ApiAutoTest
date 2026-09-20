@@ -1,7 +1,11 @@
-class Assertor:
-    """三档断言引擎:status(状态码)→ contains(字段值)→ schema(字段存在+类型)。
+import jsonschema
 
-    由弱到强,status 保底线、contains 校业务语义、schema 校结构契约。
+
+class Assertor:
+    """三档断言引擎:status(状态码)→ contains(字段值)→ schema(JSON Schema 结构契约)。
+
+    由弱到强,status 保底线、contains 校业务语义、schema 校结构契约(基于 jsonschema 库,
+    支持 type/required/properties/items/enum/pattern 等标准关键字)。
     """
 
     def __init__(self, resp, case_name):
@@ -29,19 +33,17 @@ class Assertor:
                 assert actual[k] == v, f"[{self.case_name}]字段值不符：{k}期望{v}，实际{actual[k]}"
 
     def assert_schema(self, expected_schema: dict):
-        """字段存在性 + 类型校验(基于 isinstance,非 jsonschema,不支持正则/嵌套规则,可后续升级)。"""
-        actual = self.resp.json()
-        # 响应是数组时取首元素做 schema 校验
-        if isinstance(actual, list):
-            assert len(actual) > 0, f"[{self.case_name}] 响应数组为空，无法校验 schema"
-            actual = actual[0]
+        """用 JSON Schema 校验响应结构(draft-07,支持 type/required/properties/items/enum/pattern 等)。
 
-        for field, rule in expected_schema.items():
-            assert field in actual, f"[{self.case_name}] 必填字段缺失: {field}"
-            if "type" in rule:
-                typ = rule["type"]
-                assert isinstance(actual[field], eval(typ)), \
-                    f"[{self.case_name}] 类型不符: {field} 期望{typ}, 实际{type(actual[field]).__name__}"
+        dict 响应直接校验;list 响应(如查询列表)用 schema 的 type:array + items 描述元素结构。
+        失败抛 AssertionError,包装 jsonschema.ValidationError 的可读消息并带字段路径定位。
+        """
+        actual = self.resp.json()
+        try:
+            jsonschema.validate(instance=actual, schema=expected_schema)
+        except jsonschema.ValidationError as e:
+            path = ".".join(str(p) for p in e.absolute_path) or "(root)"
+            raise AssertionError(f"[{self.case_name}] Schema 校验失败 @ {path}: {e.message}") from e
 
     def run(self, expects: dict):
         """按 status → contains → schema 顺序执行,任一档失败即抛 AssertionError 终止该用例。"""

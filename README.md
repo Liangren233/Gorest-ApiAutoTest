@@ -8,7 +8,7 @@
 
 - **数据驱动**:用例与代码解耦,所有用例写在 YAML,新增用例零代码改动
 - **跨用例变量关联**:session 级变量池支持 `${var}` 语法,前序用例提取的 ID 可在后序用例引用
-- **三档断言引擎**:status(状态码)/ contains(字段精确匹配,支持 dict 与 list 响应)/ schema(字段存在性+类型)
+- **三档断言引擎**:status(状态码)/ contains(字段精确匹配,支持 dict 与 list 响应)/ schema(JSON Schema 结构契约,基于 jsonschema 库,支持 type/required/properties/items/enum/pattern)
 - **JSONPath 提取**:基于 jsonpath 库,支持 `$.id` / `$[0].id` / 嵌套路径
 - **鉴权可覆盖**:`auth: false` 跳过 token 注入,支持 401 鉴权失败场景
 - **数据兜底清理**:session 级 cleanup fixture,用例中途失败也自动清理垃圾数据
@@ -175,7 +175,7 @@ session 级 `vars_pool` 变量池,支持 `${var}` 语法跨用例传递数据:
 |---|---|---|
 | `status` | HTTP 状态码精确匹配 | `status: 200` |
 | `contains` | 响应字段精确匹配 | `contains: {message: "Resource not found"}` |
-| `schema` | 字段存在性 + 类型校验 | `schema: {id: {type: int}}` |
+| `schema` | JSON Schema 结构契约(基于 jsonschema 库) | `schema: {type: object, required: [id, name], properties: {id: {type: integer}, name: {type: string}}}` |
 
 `contains` 同时支持:
 - **dict 响应**:直接校验字段值(如 404 `{"message":"Resource not found"}`)

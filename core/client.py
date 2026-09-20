@@ -29,8 +29,8 @@ class ApiClient:
 
         # 相对路径拼 base_url,绝对路径(http 开头)直接用(支持外部 URL)
         full_url = url if url.startswith("http") else f"{BASE_URL}{url}"
-        # 默认 timeout(连接5s/读取15s),防止网络瞬时故障导致 pytest 无限挂起;可用 kwargs timeout= 覆盖
-        kwargs.setdefault("timeout", (5, 15))
+        # 默认 timeout(连接10s/读取30s),防止网络瞬时故障导致 pytest 无限挂起;可用 kwargs timeout= 覆盖
+        kwargs.setdefault("timeout", (10, 30))
         resp = requests.request(method, full_url, **kwargs)
         self.last_resp = resp
         return resp  # 只发一次!早期 bug:末尾又 return requests.request(...) 导致 POST 等非幂等操作执行两次

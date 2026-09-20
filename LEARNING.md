@@ -110,7 +110,12 @@ Gorest-ApiAutoTest/
   expects:                    # 期望
     status: 201               # HTTP 状态码(必填)
     contains: {field: value}  # 字段精确匹配(可选)
-    schema: {id: {type: int}} # 字段存在性+类型(可选)
+    schema:                 # JSON Schema 结构契约(可选,基于 jsonschema 库)
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: integer}
+        name: {type: string}
   extract:                    # 提取响应字段到变量池(可选)
     created_user_id: $.id
   cleanup:                    # 声明要清理的资源(可选)
@@ -206,7 +211,7 @@ resp.json() → jsonpath.jsonpath(data, expr) → val 写入 vars_pool[var_name]
 |---|---|---|---|
 | status | `assert_status` | HTTP 状态码 | 期望 200,实际 404 |
 | contains | `assert_contains` | 字段值精确匹配 | 字段值不符 |
-| schema | `assert_schema` | 字段存在+类型 | 必填字段缺失/类型不符 |
+| schema | `assert_schema` | JSON Schema 结构契约 | type/required/properties/items/enum 等不符 |
 
 **contains 的 list 分支**(重点):GoREST 的 422 错误返回的是**数组**:
 ```json
